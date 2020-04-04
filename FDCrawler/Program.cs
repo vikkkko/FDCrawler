@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CrawlerForEth;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -43,7 +44,7 @@ namespace FDCrawler
         static void Main(string[] args)
         {
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-            var crawler = new Crawler(new Nethereum.Web3.Web3(Settings.Ins.ethUrls[0]),new MongoDB.Driver.MongoClient(Settings.Ins.mongodbUrl));
+            var crawler = new Crawler(new Web3Manager(Settings.Ins.ethUrls),new MongoDB.Driver.MongoClient(Settings.Ins.mongodbUrl));
             Task task = new Task(async ()=> {
                 await crawler.Start();
             });

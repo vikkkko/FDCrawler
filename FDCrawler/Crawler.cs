@@ -11,12 +11,13 @@ using MongoDB.Driver;
 using MongoDB.Bson;
 using CrawlerForEth.IO.Mongodb;
 using System;
+using CrawlerForEth;
 
 namespace FDCrawler
 {
     public class Crawler
     {
-        private readonly Web3 web3;
+        private readonly Web3Manager web3Manager;
         private readonly MongoClient mongoClient;
 
         private ContractNeedCache contractNeedModel;
@@ -24,9 +25,9 @@ namespace FDCrawler
         private EventInfoCache eventInfoModel;
         private CounterCache counterCache;
 
-        public Crawler(Web3 web3, MongoClient mongoClient)
+        public Crawler(Web3Manager web3Manager, MongoClient mongoClient)
         {
-            this.web3 = web3;
+            this.web3Manager = web3Manager;
             this.mongoClient = mongoClient;
             contractNeedModel = new ContractNeedCache(mongoClient.GetDatabase(Settings.Ins.mongodbDatabase));
             logModel = new LogCache(mongoClient.GetDatabase(Settings.Ins.mongodbDatabase));
@@ -44,7 +45,7 @@ namespace FDCrawler
                 try
                 {
                     //获取当前区块的高度
-                    BigInteger currentBlockNumber = (await web3.Eth.Blocks.GetBlockNumber.SendRequestAsync()).Value;
+                    BigInteger currentBlockNumber = (await web3Manager.Current.Eth.Blocks.GetBlockNumber.SendRequestAsync()).Value;
                     if (execBlockNumber < currentBlockNumber)
                     {
                         using (var session = mongoClient.StartSession())
@@ -61,7 +62,6 @@ namespace FDCrawler
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine(e);
                                 session.AbortTransaction();
                                 throw e;
                             }
@@ -73,6 +73,7 @@ namespace FDCrawler
                 {
                     execBlockNumber--;
                     Console.WriteLine(e);
+                    web3Manager.ChangeWeb3();
                 }
 
                 await Task.Delay(1000);
@@ -93,11 +94,11 @@ namespace FDCrawler
                 await contractNeedModel.Update(session, filter, new ContractNeed() { type = EnumExecuteType.EXECUTE, contractHash = contractNeedPending[0].contractHash });
             }
             //爬取链上数据
-            BlockWithTransactions blockWithTransactions =await web3.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(new HexBigInteger(execBlockNumber));
+            BlockWithTransactions blockWithTransactions =await web3Manager.Current.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(new HexBigInteger(execBlockNumber));
             Transaction[] transactions = blockWithTransactions.Transactions;
             foreach (var tran in transactions)
             {
-                TransactionReceipt transactionR = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tran.TransactionHash);
+                TransactionReceipt transactionR = await web3Manager.Current.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tran.TransactionHash);
                 if (transactionR.Logs.Count != 0)
                 {
                     var _logs = transactionR.Logs.Where(l =>

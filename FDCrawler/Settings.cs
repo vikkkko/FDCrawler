@@ -31,8 +31,8 @@ namespace FDCrawler
             IConfigurationSection section_urls = section.GetSection("ethUrls");
             if(section_urls.Exists())
                 this.ethUrls = section_urls.GetChildren().Select(p => p.Value).ToArray();
-           var mongodbUrl = section.GetSection("mongodbUrl").Value;
-           var mongodbDatabase = section.GetSection("mongodbDatabase").Value;
+           this.mongodbUrl = section.GetSection("mongodbUrl").Value;
+           this.mongodbDatabase = section.GetSection("mongodbDatabase").Value;
         }
     }
 }
