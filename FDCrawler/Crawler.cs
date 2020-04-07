@@ -12,6 +12,7 @@ using MongoDB.Bson;
 using CrawlerForEth.IO.Mongodb;
 using System;
 using CrawlerForEth;
+using System.Diagnostics;
 
 namespace FDCrawler
 {
@@ -76,7 +77,7 @@ namespace FDCrawler
                     web3Manager.ChangeWeb3();
                 }
 
-                await Task.Delay(1000);
+                await Task.Delay(Settings.Ins.waitingTime);
             }
         }
 
@@ -96,8 +97,7 @@ namespace FDCrawler
             //爬取链上数据
             BlockWithTransactions blockWithTransactions =await web3Manager.Current.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(new HexBigInteger(execBlockNumber));
             Transaction[] transactions = blockWithTransactions.Transactions;
-            foreach (var tran in transactions)
-            {
+            Parallel.ForEach(transactions,async (tran)=> {
                 TransactionReceipt transactionR = await web3Manager.Current.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tran.TransactionHash);
                 if (transactionR.Logs.Count != 0)
                 {
@@ -111,10 +111,10 @@ namespace FDCrawler
                         }
                         return false;
                     }).ToList();
-                    if(_logs.Count != 0)
+                    if (_logs.Count != 0)
                         logs.Merge(_logs);
                 }
-            }
+            });
             ExecLogs(logs);
             await Commit(session);
         }

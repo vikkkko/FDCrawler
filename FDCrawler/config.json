@@ -1,5 +1,6 @@
 ﻿{
   "ethUrls": [ "http://47.110.160.27:8545", "http://47.110.160.27:8545" ],
   "mongodbUrl": "mongodb://metadataCheckStorage:NELqingmingzi1128@dds-bp1df57f935202e41897-pub.mongodb.rds.aliyuncs.com:3717/ETH_DATA_Viko",
-  "mongodbDatabase": "ETH_DATA_Viko"
+  "mongodbDatabase": "ETH_DATA_Viko",
+  "waitingTime": "100"
 }

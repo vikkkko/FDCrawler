@@ -12,6 +12,7 @@ namespace FDCrawler
         public string[] ethUrls { get; }
         public string mongodbUrl { get; }
         public string mongodbDatabase { get; }
+        public int waitingTime { get; }
 
         private static Settings ins;
         public static Settings Ins
@@ -31,8 +32,9 @@ namespace FDCrawler
             IConfigurationSection section_urls = section.GetSection("ethUrls");
             if(section_urls.Exists())
                 this.ethUrls = section_urls.GetChildren().Select(p => p.Value).ToArray();
-           this.mongodbUrl = section.GetSection("mongodbUrl").Value;
-           this.mongodbDatabase = section.GetSection("mongodbDatabase").Value;
+            this.mongodbUrl = section.GetSection("mongodbUrl").Value;
+            this.mongodbDatabase = section.GetSection("mongodbDatabase").Value;
+            this.waitingTime =int.Parse(section.GetSection("waitingTime").Value);
         }
     }
 }
