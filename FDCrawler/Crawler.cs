@@ -13,6 +13,8 @@ using CrawlerForEth.IO.Mongodb;
 using System;
 using CrawlerForEth;
 using System.Diagnostics;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace FDCrawler
 {
@@ -54,12 +56,16 @@ namespace FDCrawler
                             session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
                             try
                             {
+                                Stopwatch sw = new Stopwatch();
+                                sw.Start();
                                 execBlockNumber++;
-                                Console.WriteLine(string.Format("处理的高度：{0}", execBlockNumber));
+                                Console.WriteLine(string.Format("开始处理高度：{0}", execBlockNumber));
                                 await CrawlAndExec(session, execBlockNumber);
                                 ///更新高度
                                 await counterCache.Update(session, new BsonDocument("CollName", "blockHeight"), new Counter() { CollName = "blockHeight", counter = execBlockNumber });
                                 session.CommitTransaction();
+                                sw.Stop();
+                                Console.WriteLine(string.Format("结束处理高度：{0},处理耗时：{1}", execBlockNumber,sw.ElapsedMilliseconds));
                             }
                             catch (Exception e)
                             {
@@ -97,24 +103,36 @@ namespace FDCrawler
             //爬取链上数据
             BlockWithTransactions blockWithTransactions =await web3Manager.Current.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(new HexBigInteger(execBlockNumber));
             Transaction[] transactions = blockWithTransactions.Transactions;
-            Parallel.ForEach(transactions,async (tran)=> {
-                TransactionReceipt transactionR = await web3Manager.Current.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tran.TransactionHash);
-                if (transactionR.Logs.Count != 0)
+            contractNeedModel.FindAllByContractHash();
+            List<Task> actions = transactions.Select<Transaction,Task>(async (tran) =>
+            {
+                try
                 {
-                    var _logs = transactionR.Logs.Where(l =>
+                    TransactionReceipt transactionR = await web3Manager.Current.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tran.TransactionHash);
+                    if (transactionR.Logs.Count != 0)
                     {
-                        string contractHash = (string)l["address"];
-                        var contractNeeds = contractNeedModel.Find(new BsonDocument("contractHash", contractHash), new BsonDocument(), 0, 1);
-                        if (contractNeeds.Count != 0)
+                        var _logs = transactionR.Logs.Where(l =>
                         {
-                            return true;
-                        }
-                        return false;
-                    }).ToList();
-                    if (_logs.Count != 0)
-                        logs.Merge(_logs);
+                            string contractHash = (string)l["address"];
+                            if (contractNeedModel.ContractHash_ALL.ContainsKey(contractHash))
+                            {
+                                return true;
+                            }
+                            return false;
+                        }).ToList();
+                        if (_logs.Count != 0)
+                            logs.Merge(_logs);
+                    }
+                    //Console.WriteLine(string.Format("foreach 高度{0}中", execBlockNumber));  
                 }
-            });
+                catch (Exception e)
+                {
+                    Console.WriteLine(string.Format("高度{0}获取交易receipt报错了", execBlockNumber));  
+                    throw e;    
+                }
+            }).ToList();
+            await Task.WhenAll(actions);
+            Console.WriteLine("处理到了这里");
             ExecLogs(logs);
             await Commit(session);
         }
@@ -124,13 +142,13 @@ namespace FDCrawler
             if (ja.Count != 0)
             {
                 var counter = logModel.counter;
+                eventInfoModel.FindAllByEventHash();
                 //筛选出需要入库的log
                 var logs = ja.Select(l =>
                 {
                     var log = Log.FromJObject(l);
-                    var eventInfos = eventInfoModel.Find(new BsonDocument("eventHash", log.eventHash), new BsonDocument(), 0, 1);
-                    if (eventInfos.Count != 0)
-                        log.ExtendFromEventInfo(eventInfos[0], counter++);
+                    if (eventInfoModel.EventHash_All.ContainsKey(log.eventHash))
+                        log.ExtendFromEventInfo(eventInfoModel.EventHash_All[log.eventHash], counter++);
                     return log;
                 }).ToList();
                 logModel.Add(logs);

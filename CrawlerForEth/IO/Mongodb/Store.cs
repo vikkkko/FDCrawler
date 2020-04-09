@@ -34,5 +34,10 @@ namespace CrawlerForEth.IO.Mongodb
         {
             await cache.coll.ReplaceOneAsync(session,filter, t);
         }
+
+        public static async Task Delete<T>(this Cache<T> cache, IClientSessionHandle session, BsonDocument filter)
+        {
+            await cache.coll.DeleteOneAsync(filter);
+        }
     }
 }

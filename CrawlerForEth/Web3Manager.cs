@@ -30,7 +30,7 @@ namespace CrawlerForEth
 
         public void ChangeWeb3()
         {
-            position = position++ < webs.Count ? position++ : 0;
+            position = ++position < webs.Count ? position++ : 0;
         }
     }
 }
